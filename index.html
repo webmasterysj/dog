@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>개/고양이 인식 웹 서비스</title>
+  <style>
+    /* 전체 페이지 레이아웃 설정 */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(180deg, #f3f7ff 0%, #ffffff 100%);
+      color: #263238;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    /* 중앙 카드 컨테이너 */
+    .app-card {
+      width: 100%;
+      max-width: 920px;
+      background: #ffffff;
+      border-radius: 24px;
+      box-shadow: 0 24px 80px rgba(38, 50, 56, 0.12);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 0;
+      min-height: 520px;
+    }
+
+    /* 왼쪽 화면: 카메라 영역 */
+    .camera-panel {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .camera-panel h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 2.4vw, 2.6rem);
+      line-height: 1.1;
+    }
+
+    .camera-wrapper {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 20px;
+      background: #000;
+      aspect-ratio: 4 / 3;
+      box-shadow: inset 0 0 0 1px rgba(38, 50, 56, 0.08);
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .status-text,
+    .countdown-text {
+      font-size: 1rem;
+      color: #455a64;
+    }
+
+    .countdown-text {
+      font-weight: 700;
+      color: #1e88e5;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 999px;
+      padding: 14px 22px;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .start-button {
+      background: linear-gradient(135deg, #1e88e5, #5c6bc0);
+      color: #fff;
+      box-shadow: 0 14px 30px rgba(30, 136, 229, 0.22);
+    }
+
+    .reset-button {
+      background: #eceff1;
+      color: #263238;
+      box-shadow: 0 10px 22px rgba(38, 50, 56, 0.08);
+    }
+
+    /* 오른쪽 정보 카드 */
+    .result-panel {
+      background: #f8fbff;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .result-panel h2 {
+      margin: 0;
+      font-size: 1.3rem;
+      color: #263238;
+    }
+
+    .result-card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 10px 24px rgba(38, 50, 56, 0.08);
+      min-height: 240px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 18px;
+    }
+
+    .result-message {
+      font-size: clamp(1rem, 1.2vw, 1.3rem);
+      line-height: 1.6;
+      color: #37474f;
+      min-height: 60px;
+    }
+
+    .label-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .label-item {
+      padding: 14px 16px;
+      background: #eff3ff;
+      border-radius: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.98rem;
+    }
+
+    .label-name {
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+
+    .label-score {
+      color: #0d47a1;
+    }
+
+    .note {
+      font-size: 0.92rem;
+      color: #546e7a;
+    }
+
+    @media (max-width: 840px) {
+      .app-card {
+        grid-template-columns: 1fr;
+      }
+      .camera-panel,
+      .result-panel {
+        padding: 18px;
+      }
+    }
+
+    @media (max-width: 540px) {
+      body {
+        padding: 12px;
+      }
+      .app-card {
+        border-radius: 18px;
+      }
+      .camera-panel h1 {
+        font-size: 1.9rem;
+      }
+      .button-row {
+        flex-direction: column;
+      }
+      .result-card {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-card">
+    <section class="camera-panel">
+      <div>
+        <h1>개와 고양이를 인식하는 웹 서비스</h1>
+        <p class="note">아래 카메라에 보이는 이미지를 3초 동안 카운트한 뒤 인식합니다. HTTPS 또는 localhost에서 실행해야 카메라가 작동합니다.</p>
+      </div>
+
+      <div class="camera-wrapper">
+        <video id="webcam" autoplay muted playsinline webkit-playsinline></video>
+      </div>
+
+      <div class="status-bar">
+        <div class="status-text" id="statusText">카메라 연결을 시도합니다...</div>
+        <div class="countdown-text" id="countdownText"></div>
+      </div>
+
+      <div class="button-row">
+        <button id="startButton" class="start-button">시작</button>
+        <button id="resetButton" class="reset-button" disabled>다시 인식</button>
+      </div>
+    </section>
+
+    <section class="result-panel">
+      <div>
+        <h2>인식 결과</h2>
+        <div class="result-card">
+          <div class="result-message" id="resultMessage">시작 버튼을 눌러서 개/고양이 인식을 해보세요.</div>
+          <ul class="label-list" id="labelList"></ul>
+        </div>
+      </div>
+      <div>
+        <p class="note">음성 지원이 있는 브라우저에서 결과가 자동으로 음성으로 출력됩니다.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- TensorFlow.js 및 Teachable Machine image 라이브러리 불러오기 -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.4/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4-alpha2/dist/teachablemachine-image.min.js"></script>
+  <script>
+    // 모델 파일이 있는 경로 설정 (현재 폴더에 model.json, metadata.json, weights.bin 있음)
+    const MODEL_URL = './model.json';
+    const METADATA_URL = './metadata.json';
+
+    const statusText = document.getElementById('statusText');
+    const countdownText = document.getElementById('countdownText');
+    const resultMessage = document.getElementById('resultMessage');
+    const labelList = document.getElementById('labelList');
+    const startButton = document.getElementById('startButton');
+    const resetButton = document.getElementById('resetButton');
+    const webcamElement = document.getElementById('webcam');
+
+    webcamElement.muted = true;
+    webcamElement.playsInline = true;
+    webcamElement.setAttribute('playsinline', '');
+    webcamElement.setAttribute('webkit-playsinline', '');
+
+    let model;
+    let stream;
+    let maxPredictions;
+    let cameraReady = false;
+    let modelReady = false;
+
+    function isSecureEnvironment() {
+      return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    }
+
+    async function loadModel() {
+      model = await tmImage.load(MODEL_URL, METADATA_URL);
+      maxPredictions = model.getTotalClasses();
+      modelReady = true;
+    }
+
+    async function setupCamera() {
+      startButton.textContent = '카메라 요청 중...';
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('이 브라우저는 카메라 접근을 지원하지 않습니다. 최신 브라우저에서 열어보세요.');
+      }
+
+      const constraints = {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      webcamElement.srcObject = stream;
+      await webcamElement.play();
+      cameraReady = true;
+    }
+
+    async function init() {
+      if (!isSecureEnvironment()) {
+        const protocol = location.protocol === 'file:' ? 'file://' : location.protocol;
+        const message = `이 페이지는 HTTPS 또는 localhost에서 실행되어야 합니다. 현재 프로토콜: ${protocol}`;
+        statusText.textContent = message;
+        resultMessage.textContent = '오류: 보안 컨텍스트가 아닙니다.';
+        throw new Error(message);
+      }
+
+      statusText.textContent = '모델과 카메라를 로드하는 중입니다...';
+      await loadModel();
+      await setupCamera();
+      statusText.textContent = '카메라가 연결되었습니다. 인식하려면 다시 시작 버튼을 눌러주세요.';
+      startButton.disabled = false;
+      startButton.textContent = '시작';
+    }
+
+    async function ensureReady() {
+      if (cameraReady && modelReady) {
+        return;
+      }
+      try {
+        await init();
+      } catch (error) {
+        const secureMsg = !isSecureEnvironment() ? ' HTTPS 또는 localhost에서 실행해주세요.' : '';
+        resultMessage.textContent = `오류: ${error.message}${secureMsg}`;
+        throw error;
+      }
+    }
+
+    // 버튼을 눌렀을 때 3초 카운트 후 인식 수행
+    async function startRecognition() {
+      try {
+        await ensureReady();
+      } catch (error) {
+        console.error(error);
+        return;
+      }
+
+      startButton.disabled = true;
+      resetButton.disabled = true;
+      statusText.textContent = '3초 카운트를 시작합니다.';
+      countdownText.textContent = '3';
+
+      for (let i = 2; i >= 0; i--) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        countdownText.textContent = i > 0 ? String(i) : '처리 중...';
+      }
+
+      countdownText.textContent = '';
+      statusText.textContent = '이미지를 인식 중입니다...';
+
+      // 모델 예측 수행
+      const prediction = await model.predict(webcamElement);
+      displayResult(prediction);
+
+      startButton.disabled = false;
+      resetButton.disabled = false;
+      startButton.textContent = '다시 인식';
+      statusText.textContent = '인식이 완료되었습니다. 다시 시도할 수 있습니다.';
+    }
+
+    // 인식 결과를 화면과 음성으로 출력하는 함수
+    function displayResult(predictions) {
+      // 예측 결과를 점수 순으로 정렬
+      const sorted = predictions.slice().sort((a, b) => b.probability - a.probability);
+      labelList.innerHTML = '';
+
+      sorted.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'label-item';
+        li.innerHTML = `<span class="label-name">${item.className}</span><span class="label-score">${(item.probability * 100).toFixed(1)}%</span>`;
+        labelList.appendChild(li);
+      });
+
+      const best = sorted[0];
+      const resultText = `이 이미지는 ${best.className}로 인식되었습니다. 확률 ${
+        (best.probability * 100).toFixed(1)
+      }% 입니다.`;
+      resultMessage.textContent = resultText;
+      speakText(resultText);
+    }
+
+    // 브라우저 음성 합성 API로 결과 읽어주기
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) {
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ko-KR';
+      utterance.pitch = 1.1;
+      utterance.rate = 0.95;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // 버튼 이벤트 연결
+    startButton.addEventListener('click', startRecognition);
+    resetButton.addEventListener('click', startRecognition);
+
+    // 먼저 화면 로드 후 카메라 권한을 클릭으로 시작합니다.
+    statusText.textContent = '시작 버튼을 눌러 카메라 권한을 요청하세요.';
+  </script>
+</body>
+</html>
