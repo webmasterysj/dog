@@ -276,72 +276,108 @@
     let cameraReady = false;
     let modelReady = false;
     let webcamElement;
-    let canvas;
-    let canvasCtx;
 
     function isSecureEnvironment() {
       return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     }
 
     async function loadModel() {
-      model = await tmImage.load(MODEL_URL, METADATA_URL);
-      maxPredictions = model.getTotalClasses();
-      modelReady = true;
+      try {
+        console.log('모델 로드 시작:', MODEL_URL, METADATA_URL);
+        model = await tmImage.load(MODEL_URL, METADATA_URL);
+        maxPredictions = model.getTotalClasses();
+        console.log('모델 로드 완료. 클래스 수:', maxPredictions);
+        modelReady = true;
+      } catch (error) {
+        console.error('모델 로드 실패:', error);
+        throw new Error(`모델 로드 실패: ${error.message}`);
+      }
     }
 
     async function setupCamera() {
-      startButton.textContent = '카메라 요청 중...';
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('이 브라우저는 카메라 접근을 지원하지 않습니다. 최신 브라우저에서 열어보세요.');
+      try {
+        startButton.textContent = '카메라 요청 중...';
+        console.log('카메라 설정 시작');
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('이 브라우저는 카메라 접근을 지원하지 않습니다. 최신 브라우저에서 열어보세요.');
+        }
+
+        const constraints = {
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        };
+
+        console.log('카메라 권한 요청...');
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('카메라 스트림 획득 완료');
+
+        // 기존 video 요소 제거
+        const existing = webcamContainer.querySelector('video');
+        if (existing) {
+          existing.remove();
+        }
+
+        // 동적으로 video 요소 생성
+        webcamElement = document.createElement('video');
+        webcamElement.setAttribute('playsinline', '');
+        webcamElement.setAttribute('webkit-playsinline', '');
+        webcamElement.muted = true;
+        webcamElement.autoplay = true;
+        webcamElement.style.width = '100%';
+        webcamElement.style.height = '100%';
+        webcamElement.style.objectFit = 'cover';
+        webcamElement.style.display = 'block';
+
+        webcamContainer.appendChild(webcamElement);
+        console.log('Video 요소 생성 및 추가 완료');
+
+        webcamElement.srcObject = stream;
+        console.log('스트림 할당 완료');
+
+        // play() 호출 - 에러 처리
+        try {
+          const playPromise = webcamElement.play();
+          if (playPromise !== undefined) {
+            await playPromise;
+            console.log('카메라 재생 시작');
+          }
+        } catch (playError) {
+          console.error('Play 에러:', playError);
+          throw new Error(`카메라 재생 실패: ${playError.message}`);
+        }
+
+        cameraReady = true;
+        console.log('카메라 설정 완료');
+      } catch (error) {
+        console.error('setupCamera 에러:', error);
+        throw error;
       }
-
-      const constraints = {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: false
-      };
-
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-      // 동적으로 video 요소 생성
-      webcamElement = document.createElement('video');
-      webcamElement.setAttribute('playsinline', '');
-      webcamElement.setAttribute('webkit-playsinline', '');
-      webcamElement.muted = true;
-      webcamElement.playsInline = true;
-      webcamElement.style.width = '100%';
-      webcamElement.style.height = '100%';
-      webcamElement.style.objectFit = 'cover';
-      webcamElement.style.display = 'block';
-
-      webcamContainer.appendChild(webcamElement);
-
-      webcamElement.srcObject = stream;
-      
-      // play() 호출
-      await webcamElement.play();
-      
-      cameraReady = true;
     }
 
     async function init() {
-      if (!isSecureEnvironment()) {
-        const protocol = location.protocol === 'file:' ? 'file://' : location.protocol;
-        const message = `이 페이지는 HTTPS 또는 localhost에서 실행되어야 합니다. 현재 프로토콜: ${protocol}`;
-        statusText.textContent = message;
-        resultMessage.textContent = '오류: 보안 컨텍스트가 아닙니다.';
-        throw new Error(message);
-      }
+      try {
+        if (!isSecureEnvironment()) {
+          const protocol = location.protocol === 'file:' ? 'file://' : location.protocol;
+          const message = `이 페이지는 HTTPS 또는 localhost에서 실행되어야 합니다. 현재 프로토콜: ${protocol}`;
+          statusText.textContent = message;
+          resultMessage.textContent = '오류: 보안 컨텍스트가 아닙니다.';
+          throw new Error(message);
+        }
 
-      statusText.textContent = '모델과 카메라를 로드하는 중입니다...';
-      await loadModel();
-      await setupCamera();
-      statusText.textContent = '카메라가 연결되었습니다. 인식하려면 다시 시작 버튼을 눌러주세요.';
-      startButton.disabled = false;
-      startButton.textContent = '시작';
+        statusText.textContent = '모델과 카메라를 로드하는 중입니다...';
+        await loadModel();
+        await setupCamera();
+        statusText.textContent = '카메라가 연결되었습니다. 인식하려면 시작 버튼을 눌러주세요.';
+        startButton.disabled = false;
+        startButton.textContent = '시작';
+      } catch (error) {
+        console.error('init 에러:', error);
+        throw error;
+      }
     }
 
     async function ensureReady() {
@@ -352,7 +388,10 @@
         await init();
       } catch (error) {
         const secureMsg = !isSecureEnvironment() ? ' HTTPS 또는 localhost에서 실행해주세요.' : '';
-        resultMessage.textContent = `오류: ${error.message}${secureMsg}`;
+        const msg = `오류: ${error.message}${secureMsg}`;
+        resultMessage.textContent = msg;
+        statusText.textContent = msg;
+        console.error('ensureReady 에러:', error);
         throw error;
       }
     }
@@ -362,7 +401,12 @@
       try {
         await ensureReady();
       } catch (error) {
-        console.error(error);
+        console.error('Recognition 에러:', error);
+        return;
+      }
+
+      if (!cameraReady || !modelReady) {
+        console.error('준비가 완료되지 않음:', { cameraReady, modelReady });
         return;
       }
 
@@ -379,9 +423,15 @@
       countdownText.textContent = '';
       statusText.textContent = '이미지를 인식 중입니다...';
 
-      // 모델 예측 수행
-      const prediction = await model.predict(webcamElement);
-      displayResult(prediction);
+      try {
+        // 모델 예측 수행
+        const prediction = await model.predict(webcamElement);
+        displayResult(prediction);
+      } catch (error) {
+        console.error('예측 에러:', error);
+        statusText.textContent = '인식 중 오류가 발생했습니다.';
+        resultMessage.textContent = `오류: ${error.message}`;
+      }
 
       startButton.disabled = false;
       resetButton.disabled = false;
@@ -427,8 +477,9 @@
     startButton.addEventListener('click', startRecognition);
     resetButton.addEventListener('click', startRecognition);
 
-    // 먼저 화면 로드 후 카메라 권한을 클릭으로 시작합니다.
+    // 초기 상태 설정
     statusText.textContent = '시작 버튼을 눌러 카메라 권한을 요청하세요.';
+    console.log('페이지 로드 완료. 보안 환경:', isSecureEnvironment());
   </script>
 </body>
 </html>
