@@ -58,7 +58,7 @@
       box-shadow: inset 0 0 0 1px rgba(38, 50, 56, 0.08);
     }
 
-    video {
+    #webcam {
       width: 100%;
       height: 100%;
       object-fit: cover;
@@ -226,7 +226,7 @@
       </div>
 
       <div class="camera-wrapper">
-        <video id="webcam" muted playsinline webkit-playsinline></video>
+        <div id="webcam"></div>
       </div>
 
       <div class="status-bar">
@@ -268,18 +268,16 @@
     const labelList = document.getElementById('labelList');
     const startButton = document.getElementById('startButton');
     const resetButton = document.getElementById('resetButton');
-    const webcamElement = document.getElementById('webcam');
-
-    webcamElement.muted = true;
-    webcamElement.playsInline = true;
-    webcamElement.setAttribute('playsinline', '');
-    webcamElement.setAttribute('webkit-playsinline', '');
+    const webcamContainer = document.getElementById('webcam');
 
     let model;
     let stream;
     let maxPredictions;
     let cameraReady = false;
     let modelReady = false;
+    let webcamElement;
+    let canvas;
+    let canvasCtx;
 
     function isSecureEnvironment() {
       return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
@@ -307,8 +305,25 @@
       };
 
       stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // 동적으로 video 요소 생성
+      webcamElement = document.createElement('video');
+      webcamElement.setAttribute('playsinline', '');
+      webcamElement.setAttribute('webkit-playsinline', '');
+      webcamElement.muted = true;
+      webcamElement.playsInline = true;
+      webcamElement.style.width = '100%';
+      webcamElement.style.height = '100%';
+      webcamElement.style.objectFit = 'cover';
+      webcamElement.style.display = 'block';
+
+      webcamContainer.appendChild(webcamElement);
+
       webcamElement.srcObject = stream;
+      
+      // play() 호출
       await webcamElement.play();
+      
       cameraReady = true;
     }
 
