@@ -255,8 +255,8 @@
   </div>
 
   <!-- TensorFlow.js 및 Teachable Machine image 라이브러리 불러오기 -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.4/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4-alpha2/dist/teachablemachine-image.min.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.7.4/dist/tf.min.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4-alpha2/dist/teachablemachine-image.min.js"></script>
   <script>
     // 모델 파일이 있는 경로 설정 (현재 폴더에 model.json, metadata.json, weights.bin 있음)
     const MODEL_URL = './model.json';
@@ -281,9 +281,38 @@
       return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     }
 
+    // 라이브러리 로드 확인
+    function waitForLibraries() {
+      return new Promise((resolve) => {
+        let attempts = 0;
+        const checkLibraries = () => {
+          console.log(`라이브러리 확인 시도 ${attempts + 1}:`, { tmImage: typeof tmImage, tf: typeof tf });
+          if (typeof tmImage !== 'undefined' && typeof tf !== 'undefined') {
+            console.log('라이브러리 로드 완료!');
+            resolve();
+          } else if (attempts < 50) {
+            attempts++;
+            setTimeout(checkLibraries, 100);
+          } else {
+            console.error('라이브러리 로드 실패');
+            resolve(); // 계속 진행
+          }
+        };
+        checkLibraries();
+      });
+    }
+
     async function loadModel() {
       try {
         console.log('모델 로드 시작:', MODEL_URL, METADATA_URL);
+        
+        // 라이브러리가 로드될 때까지 기다림
+        await waitForLibraries();
+        
+        if (typeof tmImage === 'undefined') {
+          throw new Error('tmImage 라이브러리가 로드되지 않았습니다. 다시 시도해주세요.');
+        }
+        
         model = await tmImage.load(MODEL_URL, METADATA_URL);
         maxPredictions = model.getTotalClasses();
         console.log('모델 로드 완료. 클래스 수:', maxPredictions);
